@@ -106,13 +106,8 @@ data "template_file" "ebs_mount_policy" {
 
 
 resource "aws_iam_policy" "ebs_mount_policy" {
-  name   = "${title(local.name)}EBSPolicy"
+  name   = "${title(local.name)}CitizenEBSPolicy"
   policy = data.template_file.ebs_mount_policy.rendered
-}
-
-resource "aws_iam_role_policy_attachment" "efs_mount_policy" {
-  role       = aws_iam_role.this.name
-  policy_arn = aws_iam_policy.ebs_mount_policy.arn
 }
 
 resource "aws_iam_role_policy_attachment" "ebs_mount_policy" {
@@ -121,7 +116,7 @@ resource "aws_iam_role_policy_attachment" "ebs_mount_policy" {
 }
 
 resource "aws_iam_role" "this" {
-  name               = "${title(local.name)}EFSRole"
+  name               = "${title(local.name)}CitizenRole"
   assume_role_policy = <<EOF
 {
   "Version": "2012-10-17",
