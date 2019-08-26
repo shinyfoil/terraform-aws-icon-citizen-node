@@ -135,6 +135,6 @@ EOF
 }
 
 resource "aws_iam_instance_profile" "this" {
-  name = "test_profile"
+  name = "citizen-node-profile"
   role = aws_iam_role.this.name
 }
