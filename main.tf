@@ -8,6 +8,7 @@ terraform {
 locals {
   name = var.name
   common_tags = {
+    "Name" = local.name
     "Terraform" = true
     "Environment" = var.environment
   }
