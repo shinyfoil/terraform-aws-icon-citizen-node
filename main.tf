@@ -6,52 +6,56 @@ terraform {
 }
 
 locals {
-  name = var.resource_group
+  name = var.name
   common_tags = {
-    "Terraform"   = true
+    "Terraform" = true
     "Environment" = var.environment
   }
 
-  tags                   = merge(var.tags, local.common_tags)
-  terraform_state_bucket = "terraform-states-${data.aws_caller_identity.this.account_id}"
-  terraform_state_region = var.terraform_state_region
-  //  volume_path = "${split(".", var.instance_type)[0] == "c5"}"
+  tags = merge(var.tags, local.common_tags)
 }
 
 data "aws_ami" "ubuntu" {
   most_recent = true
 
   filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"]
+    name = "name"
+    values = [
+      "ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*"]
   }
 
   filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
+    name = "virtualization-type"
+    values = [
+      "hvm"]
   }
 
-  owners = ["099720109477"] # Canonical
+  owners = [
+    "099720109477"]
+  # Canonical
 }
 
 resource "aws_eip" "this" {
-  vpc      = true
-  instance = aws_instance.this.id
-
+  vpc = true
   lifecycle {
     prevent_destroy = "false"
   }
 }
 
+resource "aws_eip_association" "this" {
+  allocation_id = aws_eip.this.id
+  instance_id = var.spot_price == 0 ? aws_instance.this.*.id[0] : module.instance_id.stdout
+}
+
 resource "aws_ebs_volume" "this" {
   availability_zone = var.azs[0]
-  size              = var.ebs_volume_size
-  type              = "gp2"
+  size = var.ebs_volume_size
+  type = "gp2"
   tags = merge(
-    local.tags,
-    {
-      Name = "ebs-main"
-    },
+  local.tags,
+  {
+    Name = "ebs-main"
+  },
   )
 
   lifecycle {
@@ -59,82 +63,68 @@ resource "aws_ebs_volume" "this" {
   }
 }
 
+resource "aws_volume_attachment" "this" {
+  device_name = var.volume_path
+
+  volume_id = aws_ebs_volume.this.id
+  instance_id = var.spot_price == 0 ? aws_instance.this.*.id[0] : module.instance_id.stdout
+
+  force_detach = true
+}
+
+data "template_file" "user_data" {
+  template = file("${path.module}/data/user_data_ubuntu_ebs.sh")
+  vars = {
+    log_config_bucket = var.log_config_bucket
+    log_config_key = var.log_config_key
+  }
+}
+
 resource "aws_instance" "this" {
-  ami           = data.aws_ami.ubuntu.id
+  count = var.spot_price == 0 ? 1 : 0
+
+  ami = data.aws_ami.ubuntu.id
   instance_type = var.instance_type
 
   user_data = data.template_file.user_data.rendered
   key_name = var.key_name
 
-  iam_instance_profile = aws_iam_instance_profile.this.id
+  iam_instance_profile = var.instance_profile_id
   subnet_id = var.subnet_id
   security_groups = var.security_groups
 
   root_block_device {
-    volume_type           = "gp2"
-    volume_size           = var.root_volume_size
+    volume_type = "gp2"
+    volume_size = var.root_volume_size
     delete_on_termination = true
   }
 }
 
-data "template_file" "user_data" {
-  template = file("${path.module}/data/user_data_ubuntu_ebs.sh")
-}
+resource "aws_spot_instance_request" "this" {
+  count = var.spot_price != 0 ? 1 : 0
+  wait_for_fulfillment = true
 
-resource "aws_volume_attachment" "this" {
-  device_name = var.volume_path
-//  volume_id   = data.terraform_remote_state.ebs.outputs.volume_id
+  spot_price = var.spot_price
 
-  volume_id = aws_ebs_volume.this.id
-  instance_id = aws_instance.this.id
+  ami = data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
 
-  force_detach = true
+  user_data = data.template_file.user_data.rendered
+  key_name = var.key_name
 
-  depends_on = [aws_instance.this]
-}
+  iam_instance_profile = var.instance_profile_id
+  subnet_id = var.subnet_id
+  security_groups = var.security_groups
 
-
-data "template_file" "ebs_mount_policy" {
-  template = file("${path.module}/data/ebs_mount_policy.json")
-//TODO: IAM lockdown
-  vars = {
-//    file_system_id = data.terraform_remote_state.efs.outputs.file_system_id
-//    account_id     = data.aws_caller_identity.this.account_id
-//    region         = data.aws_region.current.name
+  root_block_device {
+    volume_type = "gp2"
+    volume_size = var.root_volume_size
+    delete_on_termination = true
   }
 }
 
-
-resource "aws_iam_policy" "ebs_mount_policy" {
-  name   = "${title(local.name)}CitizenEBSPolicy"
-  policy = data.template_file.ebs_mount_policy.rendered
-}
-
-resource "aws_iam_role_policy_attachment" "ebs_mount_policy" {
-  role       = aws_iam_role.this.name
-  policy_arn = aws_iam_policy.ebs_mount_policy.arn
-}
-
-resource "aws_iam_role" "this" {
-  name               = "${title(local.name)}CitizenRole"
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Effect": "Allow",
-      "Sid": ""
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_instance_profile" "this" {
-  name = "citizen-node-profile"
-  role = aws_iam_role.this.name
+// Wait for spot request to fufill to export
+module "instance_id" {
+  source = "matti/resource/shell"
+  command = var.spot_price == 0 ? "echo no-waiting" : format("aws ec2 wait spot-instance-request-fulfilled --spot-instance-request-ids %s && aws ec2 describe-spot-instance-requests --spot-instance-request-ids %s | jq -r '.SpotInstanceRequests[].InstanceId'", aws_spot_instance_request.this.*.id[0], aws_spot_instance_request.this.*.id[0])
 }

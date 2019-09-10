@@ -1,22 +1,13 @@
-variable "region" {
-  description = "The region you are deploying into"
+variable "name" {
+  type = "string"
 }
-
 variable "environment" {
   description = "The environment that generally corresponds to the account you are deploying into."
-}
-
-variable "resource_group" {
-  description = "The grouping that is conventionally used to name resources"
 }
 
 variable "tags" {
   description = "Tags that are appended"
   type        = map(string)
-}
-
-variable "terraform_state_region" {
-  description = "AWS region used for Terraform states"
 }
 
 variable "private_subnets" {
@@ -29,13 +20,9 @@ variable "instance_type" {
 variable "root_volume_size" {
 }
 
-variable "volume_path" {
-}
+variable "volume_path" {}
 
 //variable "local_private_key" {} # TODO Only needed for remote calls but commented out now
-
-variable "efs_directory" {
-}
 
 variable "azs" {
   description = "The availablity zones to deploy each ebs volume into."
@@ -49,14 +36,21 @@ variable "ebs_volume_size" {
 //-----
 
 variable "key_name" {}
-variable "public_key" {}
-//TODO: Hide this^^^
 
 variable "security_groups" {
   type = list
 }
 variable "subnet_id" {}
 
+variable "instance_profile_id" {}
+variable "spot_price" {
+  default = 0
+  type = number
+}
 //variable "file_system_id" {
 //  description = "The EFS file system id"
 //}
+
+
+variable "log_config_bucket" {}
+variable "log_config_key" {}
