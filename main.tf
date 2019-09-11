@@ -129,3 +129,11 @@ module "instance_id" {
   source = "matti/resource/shell"
   command = var.spot_price == 0 ? "echo no-waiting" : format("aws ec2 wait spot-instance-request-fulfilled --spot-instance-request-ids %s && aws ec2 describe-spot-instance-requests --spot-instance-request-ids %s | jq -r '.SpotInstanceRequests[].InstanceId'", aws_spot_instance_request.this.*.id[0], aws_spot_instance_request.this.*.id[0])
 }
+
+
+resource "null_resource" "wait_on_startup" {
+//This will fail on windows as it has a different sleep command - USE WSL ALWAYS
+  provisioner "local-exec" {
+    command = "sleep 20"
+  }
+}
