@@ -10,16 +10,12 @@ variable "tags" {
   type        = map(string)
 }
 
-variable "private_subnets" {
-  type = list(string)
-}
+//variable "private_subnets" {
+//  type = list(string)
+//}
 
-variable "instance_type" {
-}
-
-variable "root_volume_size" {
-}
-
+variable "instance_type" {}
+variable "root_volume_size" {}
 variable "volume_path" {}
 
 //variable "local_private_key" {} # TODO Only needed for remote calls but commented out now
@@ -47,6 +43,7 @@ variable "spot_price" {
   default = 0
   type = number
 }
+
 //variable "file_system_id" {
 //  description = "The EFS file system id"
 //}
