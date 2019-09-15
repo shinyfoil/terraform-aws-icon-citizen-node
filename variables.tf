@@ -51,3 +51,9 @@ variable "spot_price" {
 
 variable "log_config_bucket" {}
 variable "log_config_key" {}
+
+
+variable "user_data_script" {
+  type = string
+  default = "user_data_ubuntu_ebs.sh"
+}
