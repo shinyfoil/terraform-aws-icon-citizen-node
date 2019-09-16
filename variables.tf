@@ -39,10 +39,6 @@ variable "security_groups" {
 variable "subnet_id" {}
 
 variable "instance_profile_id" {}
-variable "spot_price" {
-  default = 0
-  type = number
-}
 
 //variable "file_system_id" {
 //  description = "The EFS file system id"

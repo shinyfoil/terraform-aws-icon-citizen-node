@@ -53,9 +53,9 @@ EOF
 # We could  SCP it in via terraform
 
 # Cloudwatch
-curl https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O
-chmod +x ./awslogs-agent-setup.py
-/awslogs-agent-setup.py -n -r us-east-1 -c s3://${log_config_bucket}/${log_config_key}.
+#curl https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/awslogs-agent-setup.py -O
+#chmod +x ./awslogs-agent-setup.py
+#/awslogs-agent-setup.py -n -r us-east-1 -c s3://${log_config_bucket}/${log_config_key}.
 
 #wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
 #dpkg -i amazon-cloudwatch-agent.deb
