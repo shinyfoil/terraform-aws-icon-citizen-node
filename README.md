@@ -1,7 +1,7 @@
-# terraform-aws-icon-p-rep-node
+# terraform-aws-icon-citizen-node
 
-Terraform module to run a public representative node for the ICON Blockchain. Module is intended to be run via 
-Terragrunt, a Terraform wrapper.
+Terraform module to run a citizen node for the ICON Blockchain. Module is intended to be run via Terragrunt, a
+Terraform wrapper.
 
 
 ### Components 
