@@ -8,6 +8,7 @@ apt-get upgrade -y
 apt-get install -y linux-aws
 apt-get install -y awscli
 apt install python -y
+apt install python-apt -y
 
 EC2_INSTANCE_ID=$(wget -q -O - http://169.254.169.254/latest/meta-data/instance-id || die \"wget instance-id has failed: $?\")
 EC2_AVAIL_ZONE=$(wget -q -O - http://169.254.169.254/latest/meta-data/placement/availability-zone || die \"wget availability-zone has failed: $?\")
@@ -31,6 +32,10 @@ mkdir /data
 chown -R ubuntu:ubuntu /data/
 mkfs.ext4 /dev/xvdf
 mount /dev/xvdf /data
+
+# Create the file ansible hardening depends on. Playbook fails if this file does not exist.
+# TODO: Investigate why the existence of file, even empty, is needed. Or configure it accordingly.
+touch /etc/security/limits.d/10.hardcore.conf
 
 cat<<EOF>>/home/ubuntu/docker-compose.yaml
 version: '3'
