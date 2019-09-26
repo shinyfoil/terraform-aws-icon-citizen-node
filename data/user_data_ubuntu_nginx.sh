@@ -33,6 +33,9 @@ chown -R ubuntu:ubuntu /data/
 mkfs.ext4 /dev/xvdf
 mount /dev/xvdf /data
 
+mkdir -p /home/ubuntu/data
+ln -s /data /home/ubuntu/data
+
 # Create the file ansible hardening depends on. Playbook fails if this file does not exist.
 # TODO: Investigate why the existence of file, even empty, is needed. Or configure it accordingly.
 touch /etc/security/limits.d/10.hardcore.conf
@@ -42,7 +45,7 @@ version: '3'
 services:
   nginx:
     depends_on:
-      - prep
+      - citizen
     image: 'nginx:1.17.3'
     container_name: 'nginx'
     volumes:
@@ -53,11 +56,11 @@ services:
       - 9000:9000
       - 7100:7100
     external_links:
-      - prep
+      - citizen
     restart: always
   citizen:
     image: 'iconloop/citizen-node:1908271151xd2b7a4'
-    network_mode: host
+    container_name: 'citizen'
     environment:
       LOG_OUTPUT_TYPE: "file"
       LOOPCHAIN_LOG_LEVEL: "DEBUG"
@@ -69,8 +72,8 @@ services:
     expose:
       - '9000'
       - '7100'
-#    ports:
-#      - 9000:9000
+    restart: always
+
 EOF
 
 mkdir -p /home/ubuntu/nginx/access_lists
@@ -133,25 +136,25 @@ events {
 }
 
 http {
-  geo $limit {
+  geo \$limit {
     default 1;
   }
-  map $limit $limit_key {
+  map \$limit \$limit_key {
       0 "";
-      1 $binary_remote_addr;
+      1 \$binary_remote_addr;
   }
-  limit_req_zone $limit_key zone=LimitZoneAPI:10m rate=200r/s;
+  limit_req_zone \$limit_key zone=LimitZoneAPI:10m rate=200r/s;
 
-  map $http_upgrade $connection_upgrade {
+  map \$http_upgrade \$connection_upgrade {
     default upgrade;
     ''      close;
   }
 
-  upstream prep-api {
-    server prep:9000;
+  upstream citizen-api {
+    server citizen:9000;
   }
 
-  log_format api_log 'Proxy IP: $remote_addr | Client IP: $http_x_forwarded_for | Time: $time_local' ' Request: "$request" | Status: $status | Bytes Sent: $body_bytes_sent | Referrer: "$http_referer"' ' User Agent: "$http_user_agent"';
+  log_format api_log 'Proxy IP: \$remote_addr | Client IP: \$http_x_forwarded_for | Time: \$time_local' ' Request: "\$request" | Status: \$status | Bytes Sent: \$body_bytes_sent | Referrer: "\$http_referer"' ' User Agent: "\$http_user_agent"';
 
   server {
     listen 9000;
@@ -168,26 +171,26 @@ http {
       allow all;
 
       # Forward traffic
-      proxy_pass http://prep-api;
-      proxy_set_header X-Forwarded-For $remote_addr;
-      proxy_set_header X-Forwarded-Host $host;
+      proxy_pass http://citizen-api;
+      proxy_set_header X-Forwarded-For \$remote_addr;
+      proxy_set_header X-Forwarded-Host \$host;
 
       # Websocket support
       proxy_http_version 1.1;
-      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Upgrade \$http_upgrade;
       proxy_set_header Connection "upgrade";
     }
   }
 }
 
 stream {
-  limit_conn_zone $binary_remote_addr zone=LimitZoneGRPC:10m;
+  limit_conn_zone \$binary_remote_addr zone=LimitZoneGRPC:10m;
 
-  upstream prep-grpc {
-    server prep:7100;
+  upstream citizen-grpc {
+    server citizen:7100;
   }
 
-  log_format grpc_log 'Client IP: $remote_addr | Time: $time_local';
+  log_format grpc_log 'Client IP: \$remote_addr | Time: \$time_local';
 
   server {
     listen 7100;
@@ -203,7 +206,7 @@ stream {
     #deny all;
 
     # Forward traffic
-    proxy_pass prep-grpc;
+    proxy_pass citizen-grpc;
   }
 }
 EOF
@@ -219,5 +222,6 @@ chmod +x ./awslogs-agent-setup.py
 #wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
 #dpkg -i amazon-cloudwatch-agent.deb
 # OLD ^^^
+
 
 docker-compose up -f /home/ubuntu/docker-compose.yaml -d
